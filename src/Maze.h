@@ -21,6 +21,7 @@
 
 #include <FL/math.h> // Use FLTK's math header because it defines M_PI
 #include "Cell.h"
+#include <vector>
 
 //************************************************************************
 //
@@ -98,6 +99,12 @@ class Maze {
 		// THIS IS THE FUINCTION YOU SHOULD MODIFY.
 		void	Draw_View(const float);
 
+		void	Draw_Wall(const float start[2], const float end[2], const float color[3]);
+
+		void    Vector_MultiMatrix4f(const float* srcVector, float* dstVector, const float* mat);
+
+		std::vector<std::vector<float>> Clipping(std::vector<std::vector<float>> inputPoints);
+
 		// Save the maze to a file of the given name.
 		bool	Save(const char*);
 
@@ -132,6 +139,8 @@ class Maze {
 		float	max_xp;	// The maximum x location of any vertex in the maze.
 		float	max_yp;	// The maximum y location of any vertex in the maze.
 
+		
+
 	public:
 		static const char	X; // Used to index into the viewer's position
 		static const char	Y;
@@ -151,6 +160,9 @@ class Maze {
 											// looking. Measured in degrees about the z
 											// axis, in the usual way.
 		float		viewer_fov;			// The horizontal field of view, in degrees.
+		float mv[16];
+		float pv[16];
+		
 };
 
 
