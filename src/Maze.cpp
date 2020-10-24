@@ -647,7 +647,7 @@ Draw_View(const float focal_dist)
 
 	for (int i = 0; i < (int)this->num_edges; i++)
 	{
-		i = 1;
+		//i = 1;
 		float edge_start[2] =
 		{
 			this->edges[i]->endpoints[Edge::START]->posn[Vertex::X],
@@ -668,7 +668,7 @@ Draw_View(const float focal_dist)
 		{
 			Draw_Wall(edge_start, edge_end, color);
 		}
-		break;
+		//break;
 	}
 }
 
@@ -719,7 +719,7 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 	else
 	{
 		for (auto& v : outputList)
-		{			
+		{
 			glVertex4f(v[X], v[Y], 0, v[3]);
 		}
 	}
@@ -764,15 +764,118 @@ bool intersectionLinePlane(std::vector<float>& P, const std::vector<float>& P1, 
 	return true;
 }
 
+#define W_CLIPPING_PLANE 0.00001 
 std::vector<std::vector<float>> Maze::Clipping(std::vector<std::vector<float>> inputPoints)
 {
 	using namespace std;
 
-	if (inputPoints.size() != 4||(inputPoints[0][3]<0&&inputPoints[1][3]<0&&inputPoints[2][3]<0&&inputPoints[3][3]<0))
+	if (inputPoints.size() != 4 || (inputPoints[0][3] < 0 && inputPoints[1][3] < 0 && inputPoints[2][3] < 0 && inputPoints[3][3] < 0))
 	{
 		inputPoints.clear();
 		return inputPoints;
 	}
+
+	{
+
+		vector<float> previousVertice;
+		vector<vector<float>> in_vertices;
+
+		char previousDot;
+		char currentDot;
+
+		previousVertice = *(inputPoints.end() - 1);
+		previousDot = ((previousVertice)[3] < W_CLIPPING_PLANE) ? -1 : 1;
+		for (const auto& currentVertice : inputPoints)
+		{
+			currentDot = ((currentVertice)[3] < W_CLIPPING_PLANE) ? -1 : 1;
+
+			if (previousDot * currentDot < 0)
+			{
+				vector<float> intersectionPoint;
+				//Need to clip against plan w=0
+
+				float intersectionFactor = (W_CLIPPING_PLANE - (previousVertice)[3]) / ((previousVertice)[3] - (currentVertice)[3]);
+
+				// I = Qp + f(Qc-Qp))
+				//vector4Copy(*currentVertice, intersectionPoint);                              //          Qc
+				intersectionPoint = currentVertice;
+				//vector4Subtract(intersectionPoint, *previousVertice, intersectionPoint);    //         (Qc-Qp)
+				for (int i = 0; i < 4; i++)
+				{
+					intersectionPoint[i] -= previousVertice[i];
+				}
+				//vector4Scale(intersectionPoint, intersectionFactor, intersectionPoint);        //        f(Qc-Qp))
+				for (int i = 0; i < 4; i++)
+				{
+					intersectionPoint[i] *= intersectionFactor;
+				}
+				//vector4Add(intersectionPoint, *previousVertice, intersectionPoint);            //Qp    + f(Qc-Qp))
+				for (int i = 0; i < 4; i++)
+				{
+					intersectionPoint[i] += previousVertice[i];
+				}
+
+				// Insert
+				in_vertices.push_back(intersectionPoint);
+			}
+
+			if (currentDot > 0)
+			{
+				//Insert            
+				in_vertices.push_back(currentVertice);
+			}
+
+			previousDot = currentDot;
+
+			//Move forward
+			previousVertice = currentVertice;
+		}
+
+		//Copy the output(in_vertices) into the source (face)
+		inputPoints = in_vertices;
+	}
+	for (auto& v : inputPoints)
+	{
+		if (v[3] < 0)
+		{
+			vector<vector<float>> backup = inputPoints;
+			bool found = false;
+			for (int i = 0; i < 4-1; i++)
+			{
+				for (int j = i + 1; j < 4; j++)
+				{
+					if (backup[i][3] == backup[j][3])
+					{
+						backup.erase(backup.begin() + j);
+						backup.erase(backup.begin() + i);
+						found = true;
+						break;
+					}
+				}
+				if (found)
+				{
+					break;
+				}
+			}
+			for (auto& vv : backup)
+			{
+				if (vv[3] > 0)
+				{
+					for (auto& vvv : inputPoints)
+					{
+						if (vvv[3] == vv[3])
+						{
+							vvv = v;
+							vvv[Y] *= -1;
+							break;
+						}
+					}
+				}
+			}
+			break;
+		}
+	}
+
 
 	for (auto&v : inputPoints)
 	{
@@ -786,9 +889,9 @@ std::vector<std::vector<float>> Maze::Clipping(std::vector<std::vector<float>> i
 		}
 		else
 		{
-			v[X] *= fabs(Vw);
-			v[Y] *= fabs(Vw);
-			v[Z] *= fabs(Vw);
+			v[X] /= fabs(Vw);
+			v[Y] /= fabs(Vw);
+			v[Z] /= fabs(Vw);
 
 		}
 		
