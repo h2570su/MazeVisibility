@@ -41,6 +41,41 @@ class MazeException {
 		const char* Message(void) { return message; };
 };
 
+class  Vector4
+{
+public:
+
+	float X, Y, Z, W;
+	Vector4 operator -(const Vector4& p2)
+	{
+		Vector4 ret = *this;
+		ret.X -= p2.X;
+		ret.Y -= p2.Y;
+		ret.Z -= p2.Z;
+		ret.W -= p2.W;
+		return ret;
+	}
+
+	Vector4 operator +(const Vector4& p2)
+	{
+		Vector4 ret = *this;
+		ret.X += p2.X;
+		ret.Y += p2.Y;
+		ret.Z += p2.Z;
+		ret.W += p2.W;
+		return ret;
+	}
+	Vector4 operator*(const float scale)
+	{
+		Vector4 p2 = *this;
+		p2.X *= scale;
+		p2.Y *= scale;
+		p2.Z *= scale;
+		p2.W *= scale;
+		return p2;
+	}
+};
+
 
 //************************************************************************
 //
@@ -103,7 +138,7 @@ class Maze {
 
 		void    Vector_MultiMatrix4f(const float* srcVector, float* dstVector, const float* mat);
 
-		std::vector<std::vector<float>> Clipping(std::vector<std::vector<float>> inputPoints);
+		std::vector<Vector4> Clipping(std::vector<float*> inputPoints);
 
 		// Save the maze to a file of the given name.
 		bool	Save(const char*);

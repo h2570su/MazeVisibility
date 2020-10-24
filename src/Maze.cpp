@@ -26,6 +26,7 @@
 #include <FL/fl_draw.h>
 #include <GL/glu.h>
 #include <vector>
+#include <limits>
 
 
 
@@ -641,7 +642,8 @@ Draw_View(const float focal_dist)
 	// TODO
 	// The rest is up to you!
 	//###################################################################
-
+	/*glClear(GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);*/
 
 
 
@@ -672,6 +674,8 @@ Draw_View(const float focal_dist)
 	}
 }
 
+
+
 void Maze::Draw_Wall(const float start[2], const float end[2], const float color[3])
 {
 	float edge0_UP[4] = { start[Y],1.0f,start[X], 1.0f };
@@ -694,40 +698,22 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 		Vector_MultiMatrix4f(vertexs[i], vertexs[i], pv);
 	}
 
-	std::vector<std::vector<float>> outputList;
-	for (int i = 0; i < 4; i++)
-	{
-		outputList.push_back(std::vector<float>());
-		for (int j = 0; j < 4; j++)
-		{
-			outputList[i].push_back(float());
-			outputList[i][j] = vertexs[i][j];
-		}
-	}
-
-	outputList = Clipping(outputList);
-
-
+	std::vector<Vector4> outputList;
+	outputList = Clipping(vertexs);
 
 	glBegin(GL_POLYGON);
 
 	glColor3fv(color);
-	if (outputList.size() == 0)
-	{
-
-	}
-	else
+	if (outputList.size() != 0)
 	{
 		for (auto& v : outputList)
 		{
-			glVertex4f(v[X], v[Y], 0, v[3]);
+			v.X /= v.W;
+			v.Y /= v.W;
+			v.Z /= v.W;
+			glVertex3f(v.X, v.Y, v.Z);
 		}
 	}
-
-	/*for (int i = 0; i < 4; i++)
-	{
-		glVertex4fv(vertexs[i]);
-	}*/
 
 	glEnd();
 }
@@ -745,348 +731,93 @@ void Maze::Vector_MultiMatrix4f(const float * srcVector, float * dstVector, cons
 		dstVector[i] = dst;
 	}
 }
-bool intersectionLinePlane(std::vector<float>& P, const std::vector<float>& P1, const std::vector<float>& P2, const float coeffi[])
+
+class LiangBarskyClippingHomogeneous
 {
-	float P1P2[3] = { P2[0] - P1[0],P2[1] - P1[1],P2[2] - P1[2] };
-	int i = 0;
-	float num, den, n;
-	num = coeffi[0] * P1[0] + coeffi[1] * P1[1] + coeffi[2] * P1[2] + coeffi[3];
-	den = coeffi[0] * P1P2[0] + coeffi[1] * P1P2[1] + coeffi[2] * P1P2[2];
-	if (fabs(den) < 1e-5)
-	{
-		//parallel
-		return false;
+public:
+	float _t0;
+	float _t1;
+
+	bool Clip(Vector4& p0, Vector4& p1) {
+
+		if (p0.W < 0 && p1.W < 0)
+			return false;
+
+		_t0 = 0;
+		_t1 = 1;
+
+		auto delta = p1 - p0;
+
+		if (!clip(p0.W - p0.X, -delta.W + delta.X)) return false;
+		if (!clip(p0.W + p0.X, -delta.W - delta.X)) return false;
+
+		if (!clip(p0.W - p0.Y, -delta.W + delta.Y)) return false;
+		if (!clip(p0.W + p0.Y, -delta.W - delta.Y)) return false;
+
+		if (!clip(p0.W - p0.Z, -delta.W + delta.Z)) return false;
+		if (!clip(p0.W + p0.Z, -delta.W - delta.Z)) return false;
+
+		if (_t1 < 1)
+			p1 = p0 + delta * _t1;
+
+		if (_t0 > 0)
+			p0 = p0 + delta * _t0;
+
+		return true;
 	}
-	n = num / den;
-	for (i = 0; i < 3; i++)
-		P[i] = P1[i] + n * P1P2[i];
 
-	return true;
-}
+	bool clip(float q, float p) {
+		float min = FLT_EPSILON;
+		if (fabs(p) < min && q < 0)
+			return false;
 
-#define W_CLIPPING_PLANE 0.00001 
-std::vector<std::vector<float>> Maze::Clipping(std::vector<std::vector<float>> inputPoints)
+		auto r = q / p;
+
+		if (p < 0) {
+			if (r > _t1) return false;
+			if (r > _t0) _t0 = r;
+		}
+		else {
+			if (r < _t0) return false;
+			if (r < _t1) _t1 = r;
+		}
+
+		return true;
+	}
+};
+
+std::vector<Vector4> Maze::Clipping(std::vector<float*> inputPoints)
 {
 	using namespace std;
 
-	if (inputPoints.size() != 4 || (inputPoints[0][3] < 0 && inputPoints[1][3] < 0 && inputPoints[2][3] < 0 && inputPoints[3][3] < 0))
+	vector<Vector4> source;
+	for (int i = 0; i < 4; i++)
 	{
-		inputPoints.clear();
-		return inputPoints;
+		Vector4 v;
+		v.X = inputPoints[i][X];
+		v.Y = inputPoints[i][Y];
+		v.Z = inputPoints[i][Z];
+		v.W = inputPoints[i][3];
+		source.push_back(v);
+
 	}
-
+	vector<Vector4>dest;
+	LiangBarskyClippingHomogeneous lbch;
+	Vector4 prev = *source.rbegin();
+	for (const auto& v : source)
 	{
-
-		vector<float> previousVertice;
-		vector<vector<float>> in_vertices;
-
-		char previousDot;
-		char currentDot;
-
-		previousVertice = *(inputPoints.end() - 1);
-		previousDot = ((previousVertice)[3] < W_CLIPPING_PLANE) ? -1 : 1;
-		for (const auto& currentVertice : inputPoints)
+		Vector4 pprev = prev;
+		Vector4 pv = v;
+		if (lbch.Clip(pprev, pv))
 		{
-			currentDot = ((currentVertice)[3] < W_CLIPPING_PLANE) ? -1 : 1;
-
-			if (previousDot * currentDot < 0)
-			{
-				vector<float> intersectionPoint;
-				//Need to clip against plan w=0
-
-				float intersectionFactor = (W_CLIPPING_PLANE - (previousVertice)[3]) / ((previousVertice)[3] - (currentVertice)[3]);
-
-				// I = Qp + f(Qc-Qp))
-				//vector4Copy(*currentVertice, intersectionPoint);                              //          Qc
-				intersectionPoint = currentVertice;
-				//vector4Subtract(intersectionPoint, *previousVertice, intersectionPoint);    //         (Qc-Qp)
-				for (int i = 0; i < 4; i++)
-				{
-					intersectionPoint[i] -= previousVertice[i];
-				}
-				//vector4Scale(intersectionPoint, intersectionFactor, intersectionPoint);        //        f(Qc-Qp))
-				for (int i = 0; i < 4; i++)
-				{
-					intersectionPoint[i] *= intersectionFactor;
-				}
-				//vector4Add(intersectionPoint, *previousVertice, intersectionPoint);            //Qp    + f(Qc-Qp))
-				for (int i = 0; i < 4; i++)
-				{
-					intersectionPoint[i] += previousVertice[i];
-				}
-
-				// Insert
-				in_vertices.push_back(intersectionPoint);
-			}
-
-			if (currentDot > 0)
-			{
-				//Insert            
-				in_vertices.push_back(currentVertice);
-			}
-
-			previousDot = currentDot;
-
-			//Move forward
-			previousVertice = currentVertice;
+			dest.push_back(pprev);
+			dest.push_back(pv);
 		}
 
-		//Copy the output(in_vertices) into the source (face)
-		inputPoints = in_vertices;
-	}
-	for (auto& v : inputPoints)
-	{
-		if (v[3] < 0)
-		{
-			vector<vector<float>> backup = inputPoints;
-			bool found = false;
-			for (int i = 0; i < 4-1; i++)
-			{
-				for (int j = i + 1; j < 4; j++)
-				{
-					if (backup[i][3] == backup[j][3])
-					{
-						backup.erase(backup.begin() + j);
-						backup.erase(backup.begin() + i);
-						found = true;
-						break;
-					}
-				}
-				if (found)
-				{
-					break;
-				}
-			}
-			for (auto& vv : backup)
-			{
-				if (vv[3] > 0)
-				{
-					for (auto& vvv : inputPoints)
-					{
-						if (vvv[3] == vv[3])
-						{
-							vvv = v;
-							vvv[Y] *= -1;
-							break;
-						}
-					}
-				}
-			}
-			break;
-		}
+		prev = v;
 	}
 
-
-	for (auto&v : inputPoints)
-	{
-		float Vw = v[3];
-		if (Vw > 0)
-		{
-			v[X] /= Vw;
-			v[Y] /= Vw;
-			v[Z] /= Vw;
-			v[3] = 1;
-		}
-		else
-		{
-			v[X] /= fabs(Vw);
-			v[Y] /= fabs(Vw);
-			v[Z] /= fabs(Vw);
-
-		}
-		
-	}
-
-	vector<vector<float>> outputList = inputPoints;
-	//UP
-	{
-		vector<vector<float>> inputList = outputList;
-		outputList.clear();
-		std::vector<float> S = *(inputList.end() - 1);
-		for (auto E : inputList)
-		{
-			if (E[Y] <= 1.0f)
-			{
-				if (!(S[Y] <= 1.0f))
-				{
-					vector<float>newP;
-					newP.resize(4);
-					newP[3] = 1.0f;
-
-					float slide = (S[Y] - E[Y]) / (S[X] - E[X]);
-					//y=slide*x+c
-					//y=1
-					float c = S[Y] - S[X] * slide;
-					newP[X] = (1 - c) / slide;
-					newP[Y] = 1;
-
-
-					outputList.push_back(newP);
-				}
-				outputList.push_back(E);
-			}
-			else if (S[Y] <= 1.0f)
-			{
-				vector<float>newP;
-				newP.resize(4);
-				newP[3] = 1.0f;
-				float slide = (S[Y] - E[Y]) / (S[X] - E[X]);
-				//y=slide*x+c
-				//y=1
-				float c = S[Y] - S[X] * slide;
-				newP[X] = (1 - c) / slide;
-				newP[Y] = 1;
-
-				outputList.push_back(newP);
-			}
-			S = E;
-		}
-	}
-	if (outputList.size() == 0)
-	{
-		outputList.clear();
-		return outputList;
-	}
-
-	//RIGHT
-	{
-		vector<vector<float>> inputList = outputList;
-		outputList.clear();
-		std::vector<float> S = *(inputList.end() - 1);
-		for (auto E : inputList)
-		{
-			if (E[X] <= 1.0f)
-			{
-				if (!(S[X] <= 1.0f))
-				{
-					vector<float>newP;
-					newP.resize(4);
-					newP[3] = 1.0f;
-					float slide = (S[X] - E[X]) / (S[Y] - E[Y]);
-					//x=slide*y+c
-					//x=1
-					float c = S[X] - S[Y] * slide;
-					newP[Y] = (1 - c) / slide;
-					newP[X] = 1;
-
-					outputList.push_back(newP);
-				}
-				outputList.push_back(E);
-			}
-			else if (S[X] <= 1.0f)
-			{
-				vector<float>newP;
-				newP.resize(4);
-				newP[3] = 1.0f;
-				float slide = (S[X] - E[X]) / (S[Y] - E[Y]);
-				//x=slide*y+c
-				//x=1
-				float c = S[X] - S[Y] * slide;
-				newP[Y] = (1 - c) / slide;
-				newP[X] = 1;
-
-				outputList.push_back(newP);
-			}
-			S = E;
-		}
-	}
-	if (outputList.size() == 0)
-	{
-		outputList.clear();
-		return outputList;
-	}
-
-	//DOWN
-	{
-		vector<vector<float>> inputList = outputList;
-		outputList.clear();
-		std::vector<float> S = *(inputList.end() - 1);
-		for (auto E : inputList)
-		{
-			if (E[Y] >= -1.0f)
-			{
-				if (!(S[Y] >= -1.0f))
-				{
-					vector<float>newP;
-					newP.resize(4);
-					newP[3] = 1.0f;
-					float slide = (S[Y] - E[Y]) / (S[X] - E[X]);
-					//y=slide*x+c
-					//y=-1
-					float c = S[Y] - S[X] * slide;
-					newP[X] = (-1 - c) / slide;
-					newP[Y] = -1;
-
-					outputList.push_back(newP);
-				}
-				outputList.push_back(E);
-			}
-			else if (S[Y] >= -1.0f)
-			{
-				vector<float>newP;
-				newP.resize(4);
-				newP[3] = 1.0f;
-				float slide = (S[Y] - E[Y]) / (S[X] - E[X]);
-				//y=slide*x+c
-				//y=-1
-				float c = S[Y] - S[X] * slide;
-				newP[X] = (-1 - c) / slide;
-				newP[Y] = -1;
-
-				outputList.push_back(newP);
-			}
-			S = E;
-		}
-	}
-	if (outputList.size() == 0)
-	{
-		outputList.clear();
-		return outputList;
-	}
-
-	//LEFT
-	{
-		vector<vector<float>> inputList = outputList;
-		outputList.clear();
-		std::vector<float> S = *(inputList.end() - 1);
-		for (auto E : inputList)
-		{
-			if (E[X] >= -1.0f)
-			{
-				if (!(S[X] >= -1.0f))
-				{
-					vector<float>newP;
-					newP.resize(4);
-					newP[3] = 1.0f;
-					float slide = (S[X] - E[X]) / (S[Y] - E[Y]);
-					//x=slide*y+c
-					//x=-1
-					float c = S[X] - S[Y] * slide;
-					newP[Y] = (-1 - c) / slide;
-					newP[X] = -1;
-
-					outputList.push_back(newP);
-				}
-				outputList.push_back(E);
-			}
-			else if (S[X] >= -1.0f)
-			{
-				vector<float>newP;
-				newP.resize(4);
-				newP[3] = 1.0f;
-				float slide = (S[X] - E[X]) / (S[Y] - E[Y]);
-				//x=slide*y+c
-				//x=1
-				float c = S[X] - S[Y] * slide;
-				newP[Y] = (-1 - c) / slide;
-				newP[X] = -1;
-
-				outputList.push_back(newP);
-			}
-			S = E;
-		}
-	}
-	return outputList;
+	return dest;
 }
 
 
