@@ -711,7 +711,35 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 			v.X /= v.W;
 			v.Y /= v.W;
 			v.Z /= v.W;
-			glVertex3f(v.X, v.Y, v.Z);
+			glVertex2f(v.X, v.Y);
+		}
+	}
+	else
+	{
+		bool vaild = true;
+		for (int i = 0; i < 4 && vaild; i++)
+		{
+			if (vertexs[i][3] < 0)
+			{
+				vaild = false;
+				break;
+			}
+			for (int j = 0; j < 3; j++)
+			{
+				if (vertexs[i][j] / vertexs[i][3] > 1 || vertexs[i][j] / vertexs[i][3] < -1)
+				{
+					vaild = false;
+					break;
+				}
+			}
+
+		}
+		if (vaild)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				glVertex2f(vertexs[i][X] / vertexs[i][3], vertexs[i][Y] / vertexs[i][3]);
+			}
 		}
 	}
 
