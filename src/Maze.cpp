@@ -27,6 +27,7 @@
 #include <GL/glu.h>
 #include <vector>
 #include <limits>
+#include <algorithm>
 
 
 
@@ -647,9 +648,8 @@ Draw_View(const float focal_dist)
 
 
 
-	for (int i = 0; i < (int)this->num_edges; i++)
+	/*for (int i = 0; i < (int)this->num_edges; i++)
 	{
-		//i = 1;
 		float edge_start[2] =
 		{
 			this->edges[i]->endpoints[Edge::START]->posn[Vertex::X],
@@ -670,10 +670,241 @@ Draw_View(const float focal_dist)
 		{
 			Draw_Wall(edge_start, edge_end, color);
 		}
-		//break;
+	}*/
+	Vector4 L, R;
+	L.X = cos(Maze::To_Radians(this->viewer_dir + (this->viewer_fov / 2)));
+	L.Y = sin(Maze::To_Radians(this->viewer_dir + (this->viewer_fov / 2)));
+	L.Z = 0;
+	L.W = 0;
+
+	R.X = cos(Maze::To_Radians(this->viewer_dir - (this->viewer_fov / 2)));
+	R.Y = sin(Maze::To_Radians(this->viewer_dir - (this->viewer_fov / 2)));
+	R.Z = 0;
+	R.W = 0;
+	Draw_Cell(this->view_cell, L, R);
+}
+void Maze::Draw_Cell(Cell * cell, Vector4 L, Vector4 R)
+{
+	cell->counter = this->frame_num;
+	for (int i = 0; i < 4; i++)
+	{
+		if (cell->edges[i]->opaque)
+		{
+			Edge e = *(cell->edges[i]);
+
+			Vector4 start, end;
+			start.X = e.endpoints[Edge::START]->posn[Vertex::X];
+			start.Y = e.endpoints[Edge::START]->posn[Vertex::Y];
+			end.X = e.endpoints[Edge::END]->posn[Vertex::X];
+			end.Y = e.endpoints[Edge::END]->posn[Vertex::Y];
+			Vector4 c_start, c_end;
+			if (this->ClipToFrustum(start, end, c_start, c_end, L, R))
+			{
+
+				//Draw wall
+				float edge_start[2] =
+				{
+					c_start.X,
+					c_start.Y
+				};
+
+				float edge_end[2] =
+				{
+					c_end.X,
+					c_end.Y
+				};
+				float color[3] =
+				{
+					e.color[0], e.color[1], e.color[2]
+				};
+
+				this->Draw_Wall(edge_start, edge_end, color);
+			}
+		}
+		else
+		{
+			if (!(cell->edges[i]->Neighbor(cell)->counter == this->frame_num))
+			{
+				Vector4 newL, newR;
+				Edge e = *(cell->edges[i]);
+				Vector4 start, end;
+				start.X = e.endpoints[Edge::START]->posn[Vertex::X];
+				start.Y = e.endpoints[Edge::START]->posn[Vertex::Y];
+				end.X = e.endpoints[Edge::END]->posn[Vertex::X];
+				end.Y = e.endpoints[Edge::END]->posn[Vertex::Y];
+				Vector4 c_start, c_end;
+				if (this->ClipToFrustum(start, end, c_start, c_end, L, R))
+				{
+					newL.X = c_start.X - this->viewer_posn[X];
+					newL.Y = c_start.Y - this->viewer_posn[Y];
+
+					newR.X = c_end.X - this->viewer_posn[X];
+					newR.Y = c_end.Y - this->viewer_posn[Y];
+					if (i == 0 || i == 3)
+					{
+						newR.X = c_start.X - this->viewer_posn[X];
+						newR.Y = c_start.Y - this->viewer_posn[Y];
+
+						newL.X = c_end.X - this->viewer_posn[X];
+						newL.Y = c_end.Y - this->viewer_posn[Y];
+					}
+
+
+					Draw_Cell(cell->edges[i]->Neighbor(cell), newL, newR);
+				}
+			}
+		}
 	}
 }
 
+bool Maze::ClipToFrustum(Vector4  start, Vector4  end, Vector4 & c_start, Vector4 & c_end, const Vector4& L, const Vector4& R)
+{
+	c_start = start;
+	c_end = end;
+
+	if (start.Y == end.Y)  //Horizontal
+	{
+		if (start.X > end.X)
+		{
+			std::swap(start, end);
+		}
+		float edgeLength = fabs(start.X - end.X);
+
+		//L cutting
+		float Lslide = L.Y / L.X;
+		float Lc = this->viewer_posn[Y] - Lslide * this->viewer_posn[X];
+		//Line L: y= Lslide*x+Lc
+		float L_intersectX = (start.Y - Lc) / Lslide;
+		float L_intersect_to_start_Length = fabs(L_intersectX - start.X);
+		float L_intersect_to_end_Length = fabs(L_intersectX - end.X);
+		if (L.Y >= 0)
+		{
+			if ((L_intersect_to_start_Length + L_intersect_to_end_Length) <= edgeLength) //L cutted
+			{
+				c_start.X = L_intersectX;
+			}
+			else if (L_intersect_to_start_Length > L_intersect_to_end_Length)  //Out of Left Bound, don't display
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if ((L_intersect_to_start_Length + L_intersect_to_end_Length) <= edgeLength) //L cutted
+			{
+				c_end.X = L_intersectX;
+			}
+			else if (L_intersect_to_start_Length < L_intersect_to_end_Length)  //Out of Left Bound, don't display
+			{
+				return false;
+			}
+
+		}
+
+
+		//R cutting
+		float Rslide = R.Y / R.X;
+		float Rc = this->viewer_posn[Y] - Rslide * this->viewer_posn[X];
+		//Line R: y= Rslide*x+Rc
+		float R_intersectX = (start.Y - Rc) / Rslide;
+		float R_intersect_to_start_Length = fabs(R_intersectX - start.X);
+		float R_intersect_to_end_Length = fabs(R_intersectX - end.X);
+		if (R.Y >= 0)
+		{
+			if ((R_intersect_to_start_Length + R_intersect_to_end_Length) <= edgeLength) //R cutted
+			{
+				c_end.X = R_intersectX;
+			}
+			else if (R_intersect_to_start_Length < R_intersect_to_end_Length)  //Out of Right Bound, don't display
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if ((R_intersect_to_start_Length + R_intersect_to_end_Length) <= edgeLength) //R cutted
+			{
+				c_start.X = R_intersectX;
+			}
+			else if (R_intersect_to_start_Length > R_intersect_to_end_Length)  //Out of Right Bound, don't display
+			{
+				return false;
+			}
+		}
+
+	}
+	else                   //vertical
+	{
+		if (start.Y > end.Y)
+		{
+			std::swap(start, end);
+		}
+		float edgeLength = fabs(start.Y - end.Y);
+
+		//L cutting
+		float Lslide = L.Y / L.X;
+		float Lc = this->viewer_posn[Y] - Lslide * this->viewer_posn[X];
+		//Line L: y= Lslide*x+Lc
+		float L_intersectY = start.X*Lslide + Lc;
+		float L_intersect_to_start_Length = fabs(L_intersectY - start.Y);
+		float L_intersect_to_end_Length = fabs(L_intersectY - end.Y);
+		if (L.X >= 0)
+		{
+			if ((L_intersect_to_start_Length + L_intersect_to_end_Length) <= edgeLength) //L cutted
+			{
+				c_end.Y = L_intersectY;
+			}
+			else if (L_intersect_to_start_Length < L_intersect_to_end_Length)  //Out of Left Bound, don't display
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if ((L_intersect_to_start_Length + L_intersect_to_end_Length) <= edgeLength) //L cutted
+			{
+				c_start.Y = L_intersectY;
+			}
+			else if (L_intersect_to_start_Length > L_intersect_to_end_Length)  //Out of Left Bound, don't display
+			{
+				return false;
+			}
+
+		}
+
+
+		//R cutting
+		float Rslide = R.Y / R.X;
+		float Rc = this->viewer_posn[Y] - Rslide * this->viewer_posn[X];
+		//Line R: y= Rslide*x+Rc
+		float R_intersectY = start.X*Rslide + Rc;
+		float R_intersect_to_start_Length = fabs(R_intersectY - start.Y);
+		float R_intersect_to_end_Length = fabs(R_intersectY - end.Y);
+		if (R.X >= 0)
+		{
+			if ((R_intersect_to_start_Length + R_intersect_to_end_Length) <= edgeLength) //R cutted
+			{
+				c_start.Y = R_intersectY;
+			}
+			else if (R_intersect_to_start_Length > R_intersect_to_end_Length)  //Out of Right Bound, don't display
+			{
+				return false;
+			}
+		}
+		else
+		{
+			if ((R_intersect_to_start_Length + R_intersect_to_end_Length) <= edgeLength) //R cutted
+			{
+				c_end.Y = R_intersectY;
+			}
+			else if (R_intersect_to_start_Length < R_intersect_to_end_Length)  //Out of Right Bound, don't display
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
 
 
 void Maze::Draw_Wall(const float start[2], const float end[2], const float color[3])
@@ -711,7 +942,7 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 			v.X /= v.W;
 			v.Y /= v.W;
 			v.Z /= v.W;
-			glVertex2f(v.X, v.Y);
+			glVertex2f(v.X, v.Y);			
 		}
 	}
 	else
@@ -746,6 +977,8 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 	glEnd();
 }
 
+
+
 void Maze::Vector_MultiMatrix4f(const float * srcVector, float * dstVector, const float * mat)
 {
 	float src[4] = { srcVector[0],srcVector[1],srcVector[2],srcVector[3] };
@@ -766,7 +999,8 @@ public:
 	float _t0;
 	float _t1;
 
-	bool Clip(Vector4& p0, Vector4& p1) {
+	bool Clip(Vector4& p0, Vector4& p1)
+	{
 
 		if (p0.W < 0 && p1.W < 0)
 			return false;
@@ -794,18 +1028,21 @@ public:
 		return true;
 	}
 
-	bool clip(float q, float p) {
+	bool clip(float q, float p)
+	{
 		float min = FLT_EPSILON;
 		if (fabs(p) < min && q < 0)
 			return false;
 
 		auto r = q / p;
 
-		if (p < 0) {
+		if (p < 0) 
+		{
 			if (r > _t1) return false;
 			if (r > _t0) _t0 = r;
 		}
-		else {
+		else
+		{
 			if (r < _t0) return false;
 			if (r < _t1) _t1 = r;
 		}

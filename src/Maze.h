@@ -136,6 +136,10 @@ class Maze {
 
 		void	Draw_Wall(const float start[2], const float end[2], const float color[3]);
 
+		void    Draw_Cell(Cell* cell, Vector4 L, Vector4 R);
+
+		bool    ClipToFrustum(Vector4  start, Vector4  end, Vector4 & c_start, Vector4 & c_end, const Vector4& L, const Vector4& R);
+
 		void    Vector_MultiMatrix4f(const float* srcVector, float* dstVector, const float* mat);
 
 		std::vector<Vector4> Clipping(std::vector<float*> inputPoints);
