@@ -960,7 +960,7 @@ std::vector<Vector4> Maze::ClipAndDivide(std::vector<float*> inputPoints)
 {
 	using namespace std;
 
-	float min = 1;
+	float min = 0.0001;
 	vector<Vector4> source;
 	for (int i = 0; i < 4; i++)
 	{
