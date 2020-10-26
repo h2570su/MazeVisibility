@@ -1,18 +1,18 @@
 /************************************************************************
-     File:        Maze.h
+	 File:        Maze.h
 
-     Author:     
-                  Stephen Chenney, schenney@cs.wisc.edu
-     Modifier
-                  Yu-Chi Lai, yu-chi@cs.wisc.edu
+	 Author:
+				  Stephen Chenney, schenney@cs.wisc.edu
+	 Modifier
+				  Yu-Chi Lai, yu-chi@cs.wisc.edu
 
-     Comment:    
+	 Comment:
 						(c) 2001-2002 Stephen Chenney, University of Wisconsin at Madison
 
 						Class header file for Maze class. Manages the maze.
-		
 
-     Platform:    Visio Studio.Net 2003 (converted to 2005)
+
+	 Platform:    Visio Studio.Net 2003 (converted to 2005)
 
 *************************************************************************/
 
@@ -30,15 +30,15 @@
 //
 //************************************************************************
 class MazeException {
-	private:
-		char    *message;
+private:
+	char    *message;
 
-  public:
-		MazeException(const char *m = "");
-		~MazeException() { delete message; };
+public:
+	MazeException(const char *m = "");
+	~MazeException() { delete message; };
 
-		// Return the error message string associated with the exception.
-		const char* Message(void) { return message; };
+	// Return the error message string associated with the exception.
+	const char* Message(void) { return message; };
 };
 
 class  Vector4
@@ -46,7 +46,7 @@ class  Vector4
 public:
 
 	float X, Y, Z, W;
-	Vector4 operator -(const Vector4& p2)
+	Vector4 operator -(const Vector4& p2) const
 	{
 		Vector4 ret = *this;
 		ret.X -= p2.X;
@@ -56,7 +56,7 @@ public:
 		return ret;
 	}
 
-	Vector4 operator +(const Vector4& p2)
+	Vector4 operator +(const Vector4& p2) const
 	{
 		Vector4 ret = *this;
 		ret.X += p2.X;
@@ -65,7 +65,7 @@ public:
 		ret.W += p2.W;
 		return ret;
 	}
-	Vector4 operator*(const float scale)
+	Vector4 operator*(const float scale) const
 	{
 		Vector4 p2 = *this;
 		p2.X *= scale;
@@ -73,6 +73,29 @@ public:
 		p2.Z *= scale;
 		p2.W *= scale;
 		return p2;
+	}
+	float operator [](const int idx) const
+	{
+		if (idx == 0)
+		{
+			return this->X;
+		}
+		else if (idx == 1)
+		{
+			return this->Y;
+		}
+		else if (idx == 2)
+		{
+			return this->Z;
+		}
+		else if (idx == 3)
+		{
+			return this->W;
+		}
+		else
+		{
+			return 0;
+		}
 	}
 };
 
@@ -89,119 +112,119 @@ public:
 //************************************************************************
 class Maze {
 
-	public:
-		// The first constructor takes the number of cells in the x and y 
-		// directions, and the cell size in each dimension. This constructor
-		// creates a random maze, and returns it.
-		Maze(	const int num_x, const int num_y,
-				const float size_x, const float size_y);
+public:
+	// The first constructor takes the number of cells in the x and y 
+	// directions, and the cell size in each dimension. This constructor
+	// creates a random maze, and returns it.
+	Maze(const int num_x, const int num_y,
+		const float size_x, const float size_y);
 
-		// The second constructor takes a maze file name to load. It may throw
-		// exceptions of the MazeException class if there is an error.
-		Maze(const char *f);
+	// The second constructor takes a maze file name to load. It may throw
+	// exceptions of the MazeException class if there is an error.
+	Maze(const char *f);
 
-		~Maze(void);
+	~Maze(void);
 
-	public:
-		// Set the viewer's location 
-		void	Set_View_Posn(float x, float y, float z);
+public:
+	// Set the viewer's location 
+	void	Set_View_Posn(float x, float y, float z);
 
-		// Set the angle in which the viewer is looking.
-		void	Set_View_Dir(const float);
+	// Set the angle in which the viewer is looking.
+	void	Set_View_Dir(const float);
 
-		// Set the horizontal field of view.
-		void	Set_View_FOV(const float);
+	// Set the horizontal field of view.
+	void	Set_View_FOV(const float);
 
-		// Move the viewer's position. This method will do collision detection
-		// between the viewer's location and the walls of the maze and prevent
-		// the viewer from passing through walls.
-		void	Move_View_Posn(const float dx, const float dy, const float dz);
+	// Move the viewer's position. This method will do collision detection
+	// between the viewer's location and the walls of the maze and prevent
+	// the viewer from passing through walls.
+	void	Move_View_Posn(const float dx, const float dy, const float dz);
 
-		// Draws the map view of the maze. It is passed the minimum and maximum
-		// corners of the window in which to draw.
-		void	Draw_Map(int, int, int, int);
+	// Draws the map view of the maze. It is passed the minimum and maximum
+	// corners of the window in which to draw.
+	void	Draw_Map(int, int, int, int);
 
-		// Draws the viewer's cell and its neighbors in the map view of the maze.
-		// It is passed the minimum and maximum corners of the window in which
-		// to draw.
-		void	Draw_Neighbors(int, int, int, int);
+	// Draws the viewer's cell and its neighbors in the map view of the maze.
+	// It is passed the minimum and maximum corners of the window in which
+	// to draw.
+	void	Draw_Neighbors(int, int, int, int);
 
-		// Draws the frustum on the map view of the maze. It is passed the
-		// minimum and maximum corners of the window in which to draw.
-		void	Draw_Frustum(int, int, int, int);
+	// Draws the frustum on the map view of the maze. It is passed the
+	// minimum and maximum corners of the window in which to draw.
+	void	Draw_Frustum(int, int, int, int);
 
-		// Draws the first-person view of the maze. It is passed the focal distance.
-		// THIS IS THE FUINCTION YOU SHOULD MODIFY.
-		void	Draw_View(const float);
+	// Draws the first-person view of the maze. It is passed the focal distance.
+	// THIS IS THE FUINCTION YOU SHOULD MODIFY.
+	void	Draw_View(const float);
 
-		void	Draw_Wall(const float start[2], const float end[2], const float color[3]);
+	void	Draw_Wall(const float start[2], const float end[2], const float color[3]);
 
-		void    Draw_Cell(Cell* cell, Vector4 L, Vector4 R);
+	void    Draw_Cell(Cell* cell, Vector4 L, Vector4 R);
 
-		bool    ClipToFrustum(Vector4  start, Vector4  end, Vector4 & c_start, Vector4 & c_end, const Vector4& L, const Vector4& R);
+	bool    ClipToFrustum(Vector4  start, Vector4  end, Vector4 & c_start, Vector4 & c_end, const Vector4& L, const Vector4& R);
 
-		void    Vector_MultiMatrix4f(const float* srcVector, float* dstVector, const float* mat);
+	void    Vector_MultiMatrix4f(const float* srcVector, float* dstVector, const float* mat);
 
-		std::vector<Vector4> Clipping(std::vector<float*> inputPoints);
+	std::vector<Vector4> ClipAndDivide(std::vector<float*> inputPoints);
 
-		// Save the maze to a file of the given name.
-		bool	Save(const char*);
+	// Save the maze to a file of the given name.
+	bool	Save(const char*);
 
-		// Functions to convert between degrees and radians.
-		static double   To_Radians(double deg) { return deg / 180.0 * M_PI; };
-		static double   To_Degrees(double rad) { return rad * 180.0 / M_PI; };
-	private:
-		// Functions used when creating or loading a maze.
+	// Functions to convert between degrees and radians.
+	static double   To_Radians(double deg) { return deg / 180.0 * M_PI; };
+	static double   To_Degrees(double rad) { return rad * 180.0 / M_PI; };
+private:
+	// Functions used when creating or loading a maze.
 
-		// Randomly generate the edge's opaque and transparency for an empty maze
-		void    Build_Connectivity(const int, const int, const float, const float);
-		// Grow a maze by removing candidate edges until all the cells are
-		// connected. The edges are not actually removed, they are just made
-		// transparent.
-		void    Build_Maze(void);
-		void    Set_Extents(void);
-		void    Find_View_Cell(Cell*);
+	// Randomly generate the edge's opaque and transparency for an empty maze
+	void    Build_Connectivity(const int, const int, const float, const float);
+	// Grow a maze by removing candidate edges until all the cells are
+	// connected. The edges are not actually removed, they are just made
+	// transparent.
+	void    Build_Maze(void);
+	void    Set_Extents(void);
+	void    Find_View_Cell(Cell*);
 
-	private:
-		Cell				*view_cell;// The cell that currently contains the view
-										  // point. You will need to use this.
-		unsigned int    frame_num;	// The frame number we are currently drawing.
-											// It isn't necessary, but you might find it
-											// helpful for debugging or something.
+private:
+	Cell				*view_cell;// The cell that currently contains the view
+									  // point. You will need to use this.
+	unsigned int    frame_num;	// The frame number we are currently drawing.
+										// It isn't necessary, but you might find it
+										// helpful for debugging or something.
 
-		static const float	BUFFER;	// The viewer must be at least this far inside
-												// an exterior wall of the maze.
-												// Not implemented
+	static const float	BUFFER;	// The viewer must be at least this far inside
+											// an exterior wall of the maze.
+											// Not implemented
 
-		float	min_xp;	// The minimum x location of any vertex in the maze.
-		float	min_yp;	// The minimum y location of any vertex in the maze.
-		float	max_xp;	// The maximum x location of any vertex in the maze.
-		float	max_yp;	// The maximum y location of any vertex in the maze.
+	float	min_xp;	// The minimum x location of any vertex in the maze.
+	float	min_yp;	// The minimum y location of any vertex in the maze.
+	float	max_xp;	// The maximum x location of any vertex in the maze.
+	float	max_yp;	// The maximum y location of any vertex in the maze.
 
-		
 
-	public:
-		static const char	X; // Used to index into the viewer's position
-		static const char	Y;
-		static const char	Z;
 
-		int		num_vertices;	// The number of vertices in the maze
-		Vertex	**vertices;		// An array of pointers to the vertices.
+public:
+	static const char	X; // Used to index into the viewer's position
+	static const char	Y;
+	static const char	Z;
 
-		int		num_edges;		// The number of edges in the maze.
-		Edge		**edges;			// An array of pointers to the edges.
+	int		num_vertices;	// The number of vertices in the maze
+	Vertex	**vertices;		// An array of pointers to the vertices.
 
-		int		num_cells;     // The number of cells in the maze
-		Cell		**cells;       // An array of pointers to the cells.
+	int		num_edges;		// The number of edges in the maze.
+	Edge		**edges;			// An array of pointers to the edges.
 
-		float		viewer_posn[3];	// The x,y location of the viewer.
-		float		viewer_dir;			// The direction in which the viewer is
-											// looking. Measured in degrees about the z
-											// axis, in the usual way.
-		float		viewer_fov;			// The horizontal field of view, in degrees.
-		float mv[16];
-		float pv[16];
-		
+	int		num_cells;     // The number of cells in the maze
+	Cell		**cells;       // An array of pointers to the cells.
+
+	float		viewer_posn[3];	// The x,y location of the viewer.
+	float		viewer_dir;			// The direction in which the viewer is
+										// looking. Measured in degrees about the z
+										// axis, in the usual way.
+	float		viewer_fov;			// The horizontal field of view, in degrees.
+	float mv[16];
+	float pv[16];
+
 };
 
 

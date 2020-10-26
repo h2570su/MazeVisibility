@@ -129,8 +129,6 @@ draw(void)
 
 
 		float aspect = (float)w() / h();
-		//gluPerspective(maze->viewer_fov, aspect, 0.01, 200);
-
 		float myPv[16] =
 		{
 			(1.0f / tan(Maze::To_Radians(maze->viewer_fov)*0.5) / aspect),0,0,0,
@@ -149,18 +147,12 @@ draw(void)
 			maze->viewer_posn[Maze::X]
 		};
 
-		//180??
+		
 		glRotatef(180 - maze->viewer_dir, 0, 1, 0);
 		glTranslatef(-viewer_pos[Maze::X], -viewer_pos[Maze::Y], -viewer_pos[Maze::Z]);
 		float myMv[16] = { 0 };
 		glGetFloatv(GL_MODELVIEW_MATRIX, myMv);
 		glLoadIdentity();
-		
-		/*gluLookAt(viewer_pos[Maze::X], viewer_pos[Maze::Y], viewer_pos[Maze::Z],
-			viewer_pos[Maze::X] + sin(Maze::To_Radians(maze->viewer_dir)),
-			viewer_pos[Maze::Y],
-			viewer_pos[Maze::Z] + cos(Maze::To_Radians(maze->viewer_dir)),
-			0.0, 1.0, 0.0);*/
 	
 		memcpy(maze->mv, myMv, sizeof(float) * 16);
 		memcpy(maze->pv, myPv, sizeof(float) * 16);

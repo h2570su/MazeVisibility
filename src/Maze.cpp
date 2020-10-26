@@ -640,13 +640,9 @@ Draw_View(const float focal_dist)
 	frame_num++;
 
 	//###################################################################
-	// TODO
+	// DONE
 	// The rest is up to you!
 	//###################################################################
-	/*glClear(GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);*/
-
-
 
 	/*for (int i = 0; i < (int)this->num_edges; i++)
 	{
@@ -670,6 +666,7 @@ Draw_View(const float focal_dist)
 		{
 			Draw_Wall(edge_start, edge_end, color);
 		}
+		
 	}*/
 	Vector4 L, R;
 	L.X = cos(Maze::To_Radians(this->viewer_dir + (this->viewer_fov / 2)));
@@ -700,7 +697,6 @@ void Maze::Draw_Cell(Cell * cell, Vector4 L, Vector4 R)
 			Vector4 c_start, c_end;
 			if (this->ClipToFrustum(start, end, c_start, c_end, L, R))
 			{
-
 				//Draw wall
 				float edge_start[2] =
 				{
@@ -748,7 +744,6 @@ void Maze::Draw_Cell(Cell * cell, Vector4 L, Vector4 R)
 						newL.X = c_end.X - this->viewer_posn[X];
 						newL.Y = c_end.Y - this->viewer_posn[Y];
 					}
-
 
 					Draw_Cell(cell->edges[i]->Neighbor(cell), newL, newR);
 				}
@@ -930,7 +925,7 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 	}
 
 	std::vector<Vector4> outputList;
-	outputList = Clipping(vertexs);
+	outputList = ClipAndDivide(vertexs);
 
 	glBegin(GL_POLYGON);
 
@@ -939,45 +934,12 @@ void Maze::Draw_Wall(const float start[2], const float end[2], const float color
 	{
 		for (auto& v : outputList)
 		{
-			v.X /= v.W;
-			v.Y /= v.W;
-			v.Z /= v.W;
 			glVertex2f(v.X, v.Y);			
 		}
-	}
-	else
-	{
-		bool vaild = true;
-		for (int i = 0; i < 4 && vaild; i++)
-		{
-			if (vertexs[i][3] < 0)
-			{
-				vaild = false;
-				break;
-			}
-			for (int j = 0; j < 3; j++)
-			{
-				if (vertexs[i][j] / vertexs[i][3] > 1 || vertexs[i][j] / vertexs[i][3] < -1)
-				{
-					vaild = false;
-					break;
-				}
-			}
-
-		}
-		if (vaild)
-		{
-			for (int i = 0; i < 4; i++)
-			{
-				glVertex2f(vertexs[i][X] / vertexs[i][3], vertexs[i][Y] / vertexs[i][3]);
-			}
-		}
-	}
+	}	
 
 	glEnd();
 }
-
-
 
 void Maze::Vector_MultiMatrix4f(const float * srcVector, float * dstVector, const float * mat)
 {
@@ -993,68 +955,12 @@ void Maze::Vector_MultiMatrix4f(const float * srcVector, float * dstVector, cons
 	}
 }
 
-class LiangBarskyClippingHomogeneous
-{
-public:
-	float _t0;
-	float _t1;
 
-	bool Clip(Vector4& p0, Vector4& p1)
-	{
-
-		if (p0.W < 0 && p1.W < 0)
-			return false;
-
-		_t0 = 0;
-		_t1 = 1;
-
-		auto delta = p1 - p0;
-
-		if (!clip(p0.W - p0.X, -delta.W + delta.X)) return false;
-		if (!clip(p0.W + p0.X, -delta.W - delta.X)) return false;
-
-		if (!clip(p0.W - p0.Y, -delta.W + delta.Y)) return false;
-		if (!clip(p0.W + p0.Y, -delta.W - delta.Y)) return false;
-
-		if (!clip(p0.W - p0.Z, -delta.W + delta.Z)) return false;
-		if (!clip(p0.W + p0.Z, -delta.W - delta.Z)) return false;
-
-		if (_t1 < 1)
-			p1 = p0 + delta * _t1;
-
-		if (_t0 > 0)
-			p0 = p0 + delta * _t0;
-
-		return true;
-	}
-
-	bool clip(float q, float p)
-	{
-		float min = FLT_EPSILON;
-		if (fabs(p) < min && q < 0)
-			return false;
-
-		auto r = q / p;
-
-		if (p < 0) 
-		{
-			if (r > _t1) return false;
-			if (r > _t0) _t0 = r;
-		}
-		else
-		{
-			if (r < _t0) return false;
-			if (r < _t1) _t1 = r;
-		}
-
-		return true;
-	}
-};
-
-std::vector<Vector4> Maze::Clipping(std::vector<float*> inputPoints)
+std::vector<Vector4> Maze::ClipAndDivide(std::vector<float*> inputPoints)
 {
 	using namespace std;
 
+	float min = 1;
 	vector<Vector4> source;
 	for (int i = 0; i < 4; i++)
 	{
@@ -1066,22 +972,139 @@ std::vector<Vector4> Maze::Clipping(std::vector<float*> inputPoints)
 		source.push_back(v);
 
 	}
-	vector<Vector4>dest;
-	LiangBarskyClippingHomogeneous lbch;
-	Vector4 prev = *source.rbegin();
-	for (const auto& v : source)
+	if (source[0].W < 0 && source[1].W < 0 && source[2].W < 0 &&source[3].W < 0)
 	{
-		Vector4 pprev = prev;
-		Vector4 pv = v;
-		if (lbch.Clip(pprev, pv))
+		source.clear();
+		return source;
+	}
+	vector<Vector4>dest;
+
+	{
+		Vector4 S = *source.rbegin();
+		for (const auto& E : source)
 		{
-			dest.push_back(pprev);
-			dest.push_back(pv);
+			if (E.W > min)
+			{
+				if (S.W < min)
+				{
+					//output i
+					auto d = E - S;
+					float ratio = (min - S.W) / (E - S).W;
+					auto i = S + d * ratio;
+					dest.push_back(i);
+				}
+				dest.push_back(E);
+			}
+			else if (S.W > min)
+			{
+				//output i
+				auto d = E - S;
+				float ratio = (min - S.W) / (E - S).W;
+				auto i = S + d * ratio;
+				dest.push_back(i);
+			}
+			S = E;
+		}
+	}
+	
+	
+	auto clipToAxis = [&](int Axis)
+	{
+		source = dest;
+		dest.clear();
+		Vector4 S = *source.rbegin();
+
+		for (const auto& E : source)
+		{
+			if (E[Axis] <= 1.0f)
+			{
+				if (S[Axis] > 1.0f)
+				{
+					//output i
+					float ratio = (1.0f - S[Axis]) / (E - S)[Axis];
+
+					auto d = E - S;
+					auto i = S + d * ratio;
+					i.W = 1;
+					dest.push_back(i);
+				}
+				dest.push_back(E);
+			}
+			else if (S[Axis] <= 1.0f)
+			{
+				//output i
+				float ratio = (1.0f - S[Axis]) / (E - S)[Axis];
+
+				auto d = E - S;
+				auto i = S + d * ratio;
+				i.W = 1;
+				dest.push_back(i);
+			}
+			S = E;
 		}
 
-		prev = v;
+		source = dest;
+		dest.clear();
+		if (source.size() == 0)
+		{
+			return;
+		}
+
+		S = *source.rbegin();		
+		for (const auto& E : source)
+		{
+			if (E[Axis] >= -1.0f)
+			{
+				if (S[Axis] < -1.0f)
+				{
+					//output i
+					float ratio = (-1.0f - S[Axis]) / (E - S)[Axis];
+
+					auto d = E - S;
+					auto i = S + d * ratio;
+					i.W = 1;
+					dest.push_back(i);
+				}
+				dest.push_back(E);
+			}
+			else if (S[Axis] >= -1.0f)
+			{
+				//output i
+				float ratio = (-1.0f - S[Axis]) / (E - S)[Axis];
+
+				auto d = E - S;
+				auto i = S + d * ratio;
+				i.W = 1;
+				dest.push_back(i);
+			}
+			S = E;
+		}
+
+	};
+	if (dest.size() == 0)
+	{
+		return dest;
 	}
 
+	for (auto& v : dest)
+	{
+		v.X = v.X / v.W;
+		v.Y = v.Y / v.W;
+		v.Z = v.Z / v.W;
+		v.W = 1;
+	}
+
+	clipToAxis(X);
+	if (dest.size() == 0)
+	{
+		return dest;
+	}
+	clipToAxis(Y);
+	if (dest.size() == 0)
+	{
+		return dest;
+	}
+	clipToAxis(Z);
 	return dest;
 }
 
