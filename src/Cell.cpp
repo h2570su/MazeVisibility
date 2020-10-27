@@ -96,7 +96,7 @@ Clip_To_Cell(float &xs, float &ys,
 //=======================================================================
 {
 	LineSeg in_seg(xs, ys, xe, ye);
-	float   min_crossing = 1.0f;
+	double   min_crossing = 1.0f;
 	int	  min_cross_edge;
 	int     i;
 
@@ -104,7 +104,7 @@ Clip_To_Cell(float &xs, float &ys,
 	// Check each edge for a valid crossing.
 	for ( i = 0 ; i < 4 ; i++ ) {
 		LineSeg e(edges[i]);
-		float	cross = in_seg.Cross_Param(e);
+		double	cross = in_seg.Cross_Param(e);
 
 		if ( cross > 0.0 && cross < min_crossing ) {
 			min_crossing = cross;
@@ -116,7 +116,7 @@ Clip_To_Cell(float &xs, float &ys,
 	// If the nearest crossing is within the segment...
 	if ( min_crossing < 1.0 ) {
 		if ( edges[min_cross_edge]->opaque )	{
-			min_crossing -= 1.0e-3f; // Make sure we stay inside.
+			min_crossing -= 1.0e-2f; // Make sure we stay inside.
 			if ( min_crossing < 0.0 )	
 				min_crossing = 0.0f;
 			xe = xs + min_crossing * ( xe - xs );

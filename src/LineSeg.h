@@ -36,7 +36,7 @@ class LineSeg {
 		// THIS FUNCTION IS EXTREMELY USEFUL FOR CLIPPING, but it 
 		// DOES NOT tell you whether the edge is "entering" or "leaving".
 		// But you can use tests like Edge::Point_Side() to figure that out.
-		float   Cross_Param(LineSeg);
+		double   Cross_Param(LineSeg);
 
 	public:
 		float   start[2];	// Starting point, x and y.
